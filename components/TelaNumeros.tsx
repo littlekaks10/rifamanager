@@ -10,6 +10,7 @@ import { GradeNumeros } from "./GradeNumeros";
 import { ListaCompradores } from "./ListaCompradores";
 import { PainelComprador } from "./PainelComprador";
 import { FormAtribuir, Folha, PainelNumero } from "./PainelNumero";
+import { ImagemDaRifa } from "./ImagemDaRifa";
 import { Botao, Cartao, Estatistica } from "./ui";
 
 type Filtro = "todos" | "livres" | "pagos" | "pendentes" | "conflitos";
@@ -33,6 +34,7 @@ export function TelaNumeros({ panorama }: { panorama: Panorama }) {
 
   const [numeroAberto, setNumeroAberto] = useState<number | null>(null);
   const [compradorAberto, setCompradorAberto] = useState<string | null>(null);
+  const [verImagem, setVerImagem] = useState(false);
   const [pendente, iniciar] = useTransition();
 
   const livres = useMemo(
@@ -176,6 +178,22 @@ export function TelaNumeros({ panorama }: { panorama: Panorama }) {
           />
         </div>
       </Cartao>
+
+      {/* Imagem para divulgar */}
+      <button
+        onClick={() => setVerImagem(true)}
+        className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-borda bg-superficie px-4 text-left transition active:scale-[0.99]"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          🖼️ Gerar imagem para divulgar
+        </span>
+        <span className="flex items-center gap-2 text-xs text-apagado">
+          {panorama.contagem.livres} livres
+          <span aria-hidden="true">›</span>
+        </span>
+      </button>
+
+      {verImagem && <ImagemDaRifa aoFechar={() => setVerImagem(false)} />}
 
       {/* Grade x Lista */}
       <div className="flex gap-2">
