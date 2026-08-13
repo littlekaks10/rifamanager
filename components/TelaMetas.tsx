@@ -28,12 +28,15 @@ export function TelaMetas({
   aReceber,
   valorNumero,
   numerosVendidos,
+  conflitosPagos,
 }: {
   metas: Meta[];
   arrecadado: number;
   aReceber: number;
   valorNumero: number;
   numerosVendidos: number;
+  /** Quantos números duplicados têm mais de uma pessoa que já pagou. */
+  conflitosPagos: number;
 }) {
   const [pendente, iniciar] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -100,6 +103,17 @@ export function TelaMetas({
               arrecadado · {numerosVendidos}{" "}
               {numerosVendidos === 1 ? "número pago" : "números pagos"}
             </p>
+            {conflitosPagos > 0 && (
+              <p className="mt-1 max-w-[22rem] text-[11px] leading-snug text-perigo">
+                ⚠ {conflitosPagos}{" "}
+                {conflitosPagos === 1
+                  ? "número duplicado tem"
+                  : "números duplicados têm"}{" "}
+                mais de uma pessoa que pagou — todas estão contadas aqui, porque
+                o dinheiro entrou. Por isso este total é maior que os
+                quadradinhos verdes da aba Números.
+              </p>
+            )}
           </div>
           <div className="text-right">
             <p className="text-lg font-bold tabular-nums">

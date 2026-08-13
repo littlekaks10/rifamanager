@@ -15,6 +15,14 @@ export default async function PaginaMetas() {
     .filter((c) => c.status === "pago")
     .reduce((s, c) => s + c.numeros.length, 0);
 
+  // Números duplicados em que mais de uma pessoa já pagou: são eles que fazem
+  // o total de "números pagos" daqui ficar maior que o da grade.
+  const conflitosPagos = panorama.conflitos.filter(
+    (n) =>
+      (panorama.numeros[n - 1]?.donos.filter((d) => d.status === "pago")
+        .length ?? 0) > 1,
+  ).length;
+
   return (
     <TelaMetas
       metas={metas}
@@ -22,6 +30,7 @@ export default async function PaginaMetas() {
       aReceber={panorama.aReceber}
       valorNumero={panorama.config.valor_numero}
       numerosVendidos={numerosVendidos}
+      conflitosPagos={conflitosPagos}
     />
   );
 }
