@@ -117,6 +117,7 @@ export function FormAtribuir({
     numeros: number[];
     compradorId?: string;
     nome?: string;
+    /** Deixar de fora (undefined) mantém o telefone que a pessoa já tinha. */
     telefone?: string | null;
     status: StatusComprador;
   }) => void;
@@ -138,7 +139,9 @@ export function FormAtribuir({
           numeros,
           compradorId: existente?.id,
           nome: nome.trim(),
-          telefone: telefone.trim() || null,
+          // Campo em branco = "não mexer no telefone", e não "apagar o telefone"
+          // — importante ao somar números a alguém que já está cadastrado.
+          telefone: telefone.trim() || undefined,
           status,
         });
       }}
