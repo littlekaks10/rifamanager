@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
+import { registrar } from "@/lib/historico";
+import { reais } from "@/lib/formato";
 
 export type Resultado = { ok: true } | { ok: false; erro: string };
 
@@ -59,11 +61,33 @@ export async function editarMeta(
     if (!Number.isFinite(valor) || valor < 0)
       return { ok: false, erro: "Valor inválido." };
 
+    const { data: antes } = await supabase
+      .from("metas")
+      .select("descricao, valor, pago")
+      .eq("id", id)
+      .maybeSingle();
+
     const { error } = await supabase
       .from("metas")
       .update({ descricao: limpo, valor })
       .eq("id", id);
     if (error) return falhar(error, "Ao editar a meta");
+
+    // Mudar o valor de uma meta JÁ PAGA muda quanto saiu do caixa. Registramos
+    // só a diferença. (Se a meta não estava paga, nada saiu — nada a lançar.)
+    if (antes?.pago) {
+      const diferenca = Number(antes.valor) - valor;
+      if (diferenca !== 0) {
+        await registrar({
+          tipo: "ajuste",
+          valor: diferenca,
+          meta_descricao: limpo,
+          descricao:
+            `Meta paga "${limpo}": valor mudou de ${reais(Number(antes.valor))} ` +
+            `para ${reais(valor)}`,
+        });
+      }
+    }
 
     atualizarTelas();
     return { ok: true };
@@ -72,14 +96,39 @@ export async function editarMeta(
   }
 }
 
-/** Liga/desliga o ✅ de uma meta. */
+/**
+ * Liga/desliga o ✅ de uma meta.
+ *
+ * Marcar uma meta como paga é dinheiro SAINDO do caixa; desmarcar devolve.
+ * É por isso que a soma do extrato bate com o "em caixa" do topo da tela.
+ */
 export async function marcarMetaPaga(
   id: string,
   pago: boolean,
 ): Promise<Resultado> {
   try {
+    const { data: antes } = await supabase
+      .from("metas")
+      .select("descricao, valor, pago")
+      .eq("id", id)
+      .maybeSingle();
+
     const { error } = await supabase.from("metas").update({ pago }).eq("id", id);
     if (error) return falhar(error, "Ao marcar a meta");
+
+    // Só registra se realmente virou — clicar duas vezes no mesmo estado não
+    // pode gerar duas linhas.
+    if (antes && antes.pago !== pago) {
+      const valor = Number(antes.valor);
+      await registrar({
+        tipo: pago ? "meta_paga" : "meta_estornada",
+        valor: pago ? -valor : valor,
+        meta_descricao: antes.descricao,
+        descricao: pago
+          ? `Meta paga: ${antes.descricao}`
+          : `Meta desmarcada, dinheiro de volta: ${antes.descricao}`,
+      });
+    }
 
     atualizarTelas();
     return { ok: true };
@@ -90,8 +139,25 @@ export async function marcarMetaPaga(
 
 export async function excluirMeta(id: string): Promise<Resultado> {
   try {
+    const { data: antes } = await supabase
+      .from("metas")
+      .select("descricao, valor, pago")
+      .eq("id", id)
+      .maybeSingle();
+
     const { error } = await supabase.from("metas").delete().eq("id", id);
     if (error) return falhar(error, "Ao excluir a meta");
+
+    // Se a meta estava paga, ela tinha tirado dinheiro do caixa. Excluí-la
+    // devolve esse dinheiro, senão o extrato deixaria de fechar.
+    if (antes?.pago) {
+      await registrar({
+        tipo: "meta_estornada",
+        valor: Number(antes.valor),
+        meta_descricao: antes.descricao,
+        descricao: `Meta paga excluída, dinheiro de volta: ${antes.descricao}`,
+      });
+    }
 
     atualizarTelas();
     return { ok: true };
@@ -143,11 +209,49 @@ export async function definirValorNumero(valor: number): Promise<Resultado> {
     if (!Number.isFinite(valor) || valor < 0)
       return { ok: false, erro: "Valor inválido." };
 
+    const { data: cfg } = await supabase
+      .from("configuracao")
+      .select("valor_numero")
+      .eq("id", 1)
+      .maybeSingle();
+    const anterior = Number(cfg?.valor_numero ?? 0);
+
     const { error } = await supabase
       .from("configuracao")
       .update({ valor_numero: valor, atualizado_em: new Date().toISOString() })
       .eq("id", 1);
     if (error) return falhar(error, "Ao mudar o valor do número");
+
+    // O arrecadado é sempre recalculado com o preço ATUAL, então trocar o valor
+    // do número muda o passado inteiro de uma vez. Sem esta linha de ajuste, o
+    // extrato passaria a não fechar com o "em caixa" do topo da tela.
+    if (anterior !== valor) {
+      const { data: pagos } = await supabase
+        .from("compradores")
+        .select("id")
+        .eq("status", "pago");
+
+      const ids = (pagos ?? []).map((p) => p.id);
+      const { count } = ids.length
+        ? await supabase
+            .from("atribuicoes")
+            .select("id", { count: "exact", head: true })
+            .in("comprador_id", ids)
+        : { count: 0 };
+
+      const numerosPagos = count ?? 0;
+      const diferenca = (valor - anterior) * numerosPagos;
+
+      if (diferenca !== 0) {
+        await registrar({
+          tipo: "ajuste",
+          valor: diferenca,
+          descricao:
+            `Valor do número mudou de ${reais(anterior)} para ${reais(valor)} — ` +
+            `${numerosPagos} ${numerosPagos === 1 ? "número pago recalculado" : "números pagos recalculados"}`,
+        });
+      }
+    }
 
     atualizarTelas();
     return { ok: true };

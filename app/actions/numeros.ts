@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
+import { comRegistro } from "@/lib/historico";
 import type { StatusComprador } from "@/lib/types";
 
 /**
@@ -124,48 +125,61 @@ export async function atribuirNumeros(dados: {
   telefone?: string | null;
   status: StatusComprador;
 }): Promise<Resultado> {
-  try {
-    const numeros = [...new Set(dados.numeros)].filter(
-      (n) => Number.isInteger(n) && n >= 1,
-    );
-    if (numeros.length === 0) return { ok: false, erro: "Nenhum número escolhido." };
+  // Guarda o id para o histórico: quando o comprador é novo, ele só passa a
+  // existir no meio da ação.
+  let idFinal: string | undefined = dados.compradorId;
 
-    let compradorId = dados.compradorId;
+  return comRegistro(
+    dados.compradorId ? [dados.compradorId] : [],
+    async (): Promise<Resultado> => {
+      try {
+        const numeros = [...new Set(dados.numeros)].filter(
+          (n) => Number.isInteger(n) && n >= 1,
+        );
+        if (numeros.length === 0)
+          return { ok: false, erro: "Nenhum número escolhido." };
 
-    if (!compradorId) {
-      const r = await acharOuCriarComprador(
-        dados.nome ?? "",
-        dados.telefone ?? null,
-        dados.status,
-      );
-      if ("erro" in r) return { ok: false, erro: r.erro };
-      compradorId = r.id;
-    } else {
-      const { error } = await supabase
-        .from("compradores")
-        .update({
-          status: dados.status,
-          ...(dados.telefone !== undefined ? { telefone: dados.telefone } : {}),
-          atualizado_em: new Date().toISOString(),
-        })
-        .eq("id", compradorId);
-      if (error) return falhar(error, "Ao atualizar o comprador");
-    }
+        let compradorId = dados.compradorId;
 
-    const { error } = await supabase
-      .from("atribuicoes")
-      .upsert(
-        numeros.map((numero) => ({ numero, comprador_id: compradorId! })),
-        { onConflict: "numero,comprador_id", ignoreDuplicates: true },
-      );
-    if (error) return falhar(error, "Ao gravar os números");
+        if (!compradorId) {
+          const r = await acharOuCriarComprador(
+            dados.nome ?? "",
+            dados.telefone ?? null,
+            dados.status,
+          );
+          if ("erro" in r) return { ok: false, erro: r.erro };
+          compradorId = r.id;
+        } else {
+          const { error } = await supabase
+            .from("compradores")
+            .update({
+              status: dados.status,
+              ...(dados.telefone !== undefined ? { telefone: dados.telefone } : {}),
+              atualizado_em: new Date().toISOString(),
+            })
+            .eq("id", compradorId);
+          if (error) return falhar(error, "Ao atualizar o comprador");
+        }
 
-    await sincronizarEstado(compradorId);
-    atualizarTelas();
-    return { ok: true };
-  } catch (e) {
-    return falhar(e, "Erro inesperado");
-  }
+        idFinal = compradorId;
+
+        const { error } = await supabase
+          .from("atribuicoes")
+          .upsert(
+            numeros.map((numero) => ({ numero, comprador_id: compradorId! })),
+            { onConflict: "numero,comprador_id", ignoreDuplicates: true },
+          );
+        if (error) return falhar(error, "Ao gravar os números");
+
+        await sincronizarEstado(compradorId);
+        atualizarTelas();
+        return { ok: true };
+      } catch (e) {
+        return falhar(e, "Erro inesperado");
+      }
+    },
+    () => (idFinal ? [idFinal] : []),
+  );
 }
 
 /** Troca o estado de uma pessoa (pago / pendente / inexistente). */
@@ -173,18 +187,20 @@ export async function definirEstadoComprador(
   compradorId: string,
   status: StatusComprador,
 ): Promise<Resultado> {
-  try {
-    const { error } = await supabase
-      .from("compradores")
-      .update({ status, atualizado_em: new Date().toISOString() })
-      .eq("id", compradorId);
-    if (error) return falhar(error, "Ao mudar o estado");
+  return comRegistro([compradorId], async (): Promise<Resultado> => {
+    try {
+      const { error } = await supabase
+        .from("compradores")
+        .update({ status, atualizado_em: new Date().toISOString() })
+        .eq("id", compradorId);
+      if (error) return falhar(error, "Ao mudar o estado");
 
-    atualizarTelas();
-    return { ok: true };
-  } catch (e) {
-    return falhar(e, "Erro inesperado");
-  }
+      atualizarTelas();
+      return { ok: true };
+    } catch (e) {
+      return falhar(e, "Erro inesperado");
+    }
+  });
 }
 
 /** Edita nome e telefone de uma pessoa. */
@@ -220,20 +236,22 @@ export async function removerReivindicacao(
   numero: number,
   compradorId: string,
 ): Promise<Resultado> {
-  try {
-    const { error } = await supabase
-      .from("atribuicoes")
-      .delete()
-      .eq("numero", numero)
-      .eq("comprador_id", compradorId);
-    if (error) return falhar(error, "Ao remover o número");
+  return comRegistro([compradorId], async (): Promise<Resultado> => {
+    try {
+      const { error } = await supabase
+        .from("atribuicoes")
+        .delete()
+        .eq("numero", numero)
+        .eq("comprador_id", compradorId);
+      if (error) return falhar(error, "Ao remover o número");
 
-    await sincronizarEstado(compradorId);
-    atualizarTelas();
-    return { ok: true };
-  } catch (e) {
-    return falhar(e, "Erro inesperado");
-  }
+      await sincronizarEstado(compradorId);
+      atualizarTelas();
+      return { ok: true };
+    } catch (e) {
+      return falhar(e, "Erro inesperado");
+    }
+  });
 }
 
 /** Passa uma pessoa de um número para outro — o jeito de resolver um conflito. */
@@ -274,39 +292,49 @@ export async function moverReivindicacao(
 
 /** Libera um número por completo: tira todo mundo que o reivindica. */
 export async function liberarNumero(numero: number): Promise<Resultado> {
-  try {
-    const { data: donos } = await supabase
-      .from("atribuicoes")
-      .select("comprador_id")
-      .eq("numero", numero);
+  // Precisamos saber quem eram os donos ANTES de apagar — num número em
+  // conflito são duas pessoas, e cada uma rende a sua linha no extrato.
+  const { data: donos } = await supabase
+    .from("atribuicoes")
+    .select("comprador_id")
+    .eq("numero", numero);
 
-    const { error } = await supabase
-      .from("atribuicoes")
-      .delete()
-      .eq("numero", numero);
-    if (error) return falhar(error, "Ao liberar o número");
+  const ids = (donos ?? []).map((d) => d.comprador_id);
 
-    for (const d of donos ?? []) await sincronizarEstado(d.comprador_id);
+  return comRegistro(ids, async (): Promise<Resultado> => {
+    try {
+      const { error } = await supabase
+        .from("atribuicoes")
+        .delete()
+        .eq("numero", numero);
+      if (error) return falhar(error, "Ao liberar o número");
 
-    atualizarTelas();
-    return { ok: true };
-  } catch (e) {
-    return falhar(e, "Erro inesperado");
-  }
+      for (const id of ids) await sincronizarEstado(id);
+
+      atualizarTelas();
+      return { ok: true };
+    } catch (e) {
+      return falhar(e, "Erro inesperado");
+    }
+  });
 }
 
 /** Apaga uma pessoa e libera todos os números dela. */
 export async function excluirComprador(compradorId: string): Promise<Resultado> {
-  try {
-    const { error } = await supabase
-      .from("compradores")
-      .delete()
-      .eq("id", compradorId);
-    if (error) return falhar(error, "Ao excluir o comprador");
+  // O comRegistro fotografa a pessoa antes de ela ser apagada, então o nome
+  // dela sobrevive no extrato mesmo depois de sumir do cadastro.
+  return comRegistro([compradorId], async (): Promise<Resultado> => {
+    try {
+      const { error } = await supabase
+        .from("compradores")
+        .delete()
+        .eq("id", compradorId);
+      if (error) return falhar(error, "Ao excluir o comprador");
 
-    atualizarTelas();
-    return { ok: true };
-  } catch (e) {
-    return falhar(e, "Erro inesperado");
-  }
+      atualizarTelas();
+      return { ok: true };
+    } catch (e) {
+      return falhar(e, "Erro inesperado");
+    }
+  });
 }

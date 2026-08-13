@@ -2,6 +2,7 @@ import "server-only";
 
 import { supabase } from "./supabase";
 import { montarPanorama, type Panorama } from "./conflitos";
+import type { Movimento } from "./historico";
 import type { Atribuicao, Comprador, Configuracao, Meta } from "./types";
 
 /**
@@ -58,6 +59,44 @@ export async function carregarPanorama(): Promise<Panorama> {
   ]);
 
   return montarPanorama(config, compradores, atribuicoes);
+}
+
+/**
+ * O extrato do caixa, do mais recente para o mais antigo.
+ *
+ * Trazemos no máximo 200 linhas para a tela não pesar no celular, mas o total
+ * vem junto para o app poder dizer "mostrando 200 de 431".
+ */
+export async function carregarMovimentos(): Promise<{
+  movimentos: Movimento[];
+  total: number;
+  saldo: number;
+}> {
+  const { data, error, count } = await supabase
+    .from("movimentos")
+    .select("id, ocorrido_em, tipo, descricao, valor, comprador_nome, meta_descricao, numeros", {
+      count: "exact",
+    })
+    .order("ocorrido_em", { ascending: false })
+    .limit(200);
+
+  // Se a tabela ainda não existe (você não rodou o 03_historico.sql), o app
+  // não quebra: mostra o extrato vazio com um aviso na tela.
+  if (error) {
+    console.error("[historico] não consegui ler:", error.message);
+    return { movimentos: [], total: -1, saldo: 0 };
+  }
+
+  const movimentos = (data ?? []).map((m) => ({
+    ...m,
+    valor: Number(m.valor),
+  })) as Movimento[];
+
+  // O saldo tem de somar TUDO, não só as 200 linhas mostradas.
+  const { data: todos } = await supabase.from("movimentos").select("valor");
+  const saldo = (todos ?? []).reduce((s, m) => s + Number(m.valor), 0);
+
+  return { movimentos, total: count ?? movimentos.length, saldo };
 }
 
 export async function carregarMetas(): Promise<Meta[]> {

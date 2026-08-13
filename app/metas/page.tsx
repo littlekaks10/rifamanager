@@ -1,14 +1,19 @@
-import { carregarMetas, carregarPanorama } from "@/lib/dados";
+import {
+  carregarMetas,
+  carregarMovimentos,
+  carregarPanorama,
+} from "@/lib/dados";
 import { TelaMetas } from "@/components/TelaMetas";
 
 export const dynamic = "force-dynamic";
 
 export default async function PaginaMetas() {
   // As metas precisam do arrecadado, que vem da aba dos números — por isso
-  // as duas leituras acontecem aqui, ao mesmo tempo.
-  const [metas, panorama] = await Promise.all([
+  // as leituras acontecem aqui, todas ao mesmo tempo.
+  const [metas, panorama, extrato] = await Promise.all([
     carregarMetas(),
     carregarPanorama(),
+    carregarMovimentos(),
   ]);
 
   const numerosVendidos = panorama.compradores
@@ -31,6 +36,9 @@ export default async function PaginaMetas() {
       valorNumero={panorama.config.valor_numero}
       numerosVendidos={numerosVendidos}
       conflitosPagos={conflitosPagos}
+      movimentos={extrato.movimentos}
+      totalMovimentos={extrato.total}
+      saldoHistorico={extrato.saldo}
     />
   );
 }

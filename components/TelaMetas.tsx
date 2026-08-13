@@ -13,6 +13,8 @@ import {
   type Resultado,
 } from "@/app/actions/metas";
 import { Botao, Cartao, Estatistica } from "./ui";
+import { HistoricoCaixa } from "./HistoricoCaixa";
+import type { Movimento } from "@/lib/historico";
 
 /**
  * A aba das metas.
@@ -29,6 +31,9 @@ export function TelaMetas({
   valorNumero,
   numerosVendidos,
   conflitosPagos,
+  movimentos,
+  totalMovimentos,
+  saldoHistorico,
 }: {
   metas: Meta[];
   arrecadado: number;
@@ -37,11 +42,16 @@ export function TelaMetas({
   numerosVendidos: number;
   /** Quantos números duplicados têm mais de uma pessoa que já pagou. */
   conflitosPagos: number;
+  movimentos: Movimento[];
+  /** -1 quando a tabela do histórico ainda não foi criada no banco. */
+  totalMovimentos: number;
+  saldoHistorico: number;
 }) {
   const [pendente, iniciar] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [editandoValor, setEditandoValor] = useState(false);
   const [criando, setCriando] = useState(false);
+  const [verHistorico, setVerHistorico] = useState(false);
 
   function executar(acao: () => Promise<Resultado>, depois?: () => void) {
     setErro(null);
@@ -161,6 +171,32 @@ export function TelaMetas({
           É esse dinheiro que a lista abaixo distribui, de cima para baixo.
         </p>
       </Cartao>
+
+      {/* Histórico do caixa */}
+      <button
+        onClick={() => setVerHistorico(true)}
+        className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-borda bg-superficie px-4 text-left transition active:scale-[0.99]"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          📜 Histórico do caixa
+        </span>
+        <span className="flex items-center gap-2 text-xs text-apagado">
+          {totalMovimentos < 0
+            ? "não configurado"
+            : `${totalMovimentos} ${totalMovimentos === 1 ? "lançamento" : "lançamentos"}`}
+          <span aria-hidden="true">›</span>
+        </span>
+      </button>
+
+      {verHistorico && (
+        <HistoricoCaixa
+          movimentos={movimentos}
+          total={totalMovimentos}
+          saldoHistorico={saldoHistorico}
+          emCaixa={calculo.emCaixa}
+          aoFechar={() => setVerHistorico(false)}
+        />
+      )}
 
       {/* Valor de cada número */}
       <Cartao>
