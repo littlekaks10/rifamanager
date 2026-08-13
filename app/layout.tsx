@@ -16,6 +16,12 @@ export const metadata: Metadata = {
     // Impede o iOS de transformar os números da rifa em links de telefone.
     telephone: false,
   },
+  other: {
+    // O Next.js já gera a tag moderna "mobile-web-app-capable", que o iOS
+    // entende a partir da versão 16.4. Esta aqui é a versão antiga da mesma
+    // coisa, para o app também abrir em tela cheia em iPhones mais velhos.
+    "apple-mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {
