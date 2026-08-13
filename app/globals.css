@@ -1,26 +1,84 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ---------------------------------------------------------------------------
+   PALETA DO APP
+
+   Tema escuro por opção: é o que se lê melhor no celular, de dia e de noite,
+   e faz as três cores de estado (verde / amarelo / vermelho) saltarem à vista.
+
+   Definindo as cores aqui, elas viram classes do Tailwind automaticamente:
+   --color-perigo  ->  bg-perigo, text-perigo, border-perigo...
+--------------------------------------------------------------------------- */
+@theme {
+  --color-fundo: #0b0f14;
+  --color-superficie: #131a22;
+  --color-superficie2: #1a232d;
+  --color-borda: #26313d;
+  --color-texto: #e8eef5;
+  --color-apagado: #8fa1b3;
+  --color-destaque: #3b82f6;
+
+  /* pago */
+  --color-ok: #22c55e;
+  --color-okfundo: #0f2e1d;
+  --color-okborda: #1d5c38;
+
+  /* pendente */
+  --color-alerta: #f5b301;
+  --color-alertafundo: #322507;
+  --color-alertaborda: #6b5008;
+
+  /* conflito */
+  --color-perigo: #f04747;
+  --color-perigofundo: #331313;
+  --color-perigoborda: #6e2020;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-fundo);
+  color-scheme: dark;
+  /* Impede o "pulo" de tamanho da letra quando o iPhone gira. */
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-fundo);
+  color: var(--color-texto);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  /* Evita a "borracha" de rolagem horizontal no Safari. */
+  overscroll-behavior-y: none;
+}
+
+/* O iPhone dá zoom sozinho ao focar um campo com letra menor que 16px. */
+input,
+select,
+textarea,
+button {
+  font-size: 16px;
+}
+
+/* Tira o brilho cinza do toque no Safari — o app tem o próprio destaque. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Barra de rolagem discreta nas listas internas. */
+.rolagem-fina::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.rolagem-fina::-webkit-scrollbar-thumb {
+  background: var(--color-borda);
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
