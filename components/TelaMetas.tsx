@@ -31,6 +31,7 @@ export function TelaMetas({
   valorNumero,
   numerosVendidos,
   conflitosPagos,
+  apoios,
   movimentos,
   totalMovimentos,
   saldoHistorico,
@@ -42,6 +43,8 @@ export function TelaMetas({
   numerosVendidos: number;
   /** Quantos números duplicados têm mais de uma pessoa que já pagou. */
   conflitosPagos: number;
+  /** Dinheiro que entrou sem ser venda de número (aba Apoios). */
+  apoios: number;
   movimentos: Movimento[];
   /** -1 quando a tabela do histórico ainda não foi criada no banco. */
   totalMovimentos: number;
@@ -65,7 +68,12 @@ export function TelaMetas({
   const calculo = useMemo(() => {
     const total = metas.reduce((s, m) => s + m.valor, 0);
     const jaPagas = metas.filter((m) => m.pago).reduce((s, m) => s + m.valor, 0);
-    const emCaixa = arrecadado - jaPagas;
+
+    // O caixa tem TRÊS fontes: o que veio da venda de números, o que veio de
+    // apoios (amigo, patrocínio) e o que já saiu para pagar metas. Esquecer os
+    // apoios aqui faria o autoteste do extrato acusar divergência.
+    const entrou = arrecadado + apoios;
+    const emCaixa = entrou - jaPagas;
 
     // Desce pela lista das metas que faltam, gastando o caixa.
     let sobra = emCaixa;
@@ -86,11 +94,12 @@ export function TelaMetas({
       total,
       jaPagas,
       emCaixa,
+      entrou,
       situacao,
-      falta: Math.max(0, total - arrecadado),
-      progresso: total > 0 ? Math.min(100, (arrecadado / total) * 100) : 0,
+      falta: Math.max(0, total - entrou),
+      progresso: total > 0 ? Math.min(100, (entrou / total) * 100) : 0,
     };
-  }, [metas, arrecadado]);
+  }, [metas, arrecadado, apoios]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -132,6 +141,17 @@ export function TelaMetas({
             <p className="text-xs text-apagado">total das metas</p>
           </div>
         </div>
+
+        {/* Sem esta linha, o caixa maior que o arrecadado ficaria sem
+            explicação na tela. */}
+        {apoios > 0 && (
+          <p className="-mt-1 text-xs text-ok">
+            + {reaisCurto(apoios)} em apoios{" "}
+            <span className="text-apagado">
+              (fora da conta dos números vendidos)
+            </span>
+          </p>
+        )}
 
         <div
           className="h-3 overflow-hidden rounded-full bg-superficie2"

@@ -61,6 +61,44 @@ export async function carregarPanorama(): Promise<Panorama> {
   return montarPanorama(config, compradores, atribuicoes);
 }
 
+export type Apoio = {
+  id: string;
+  descricao: string;
+  valor: number;
+  recebido_em: string;
+};
+
+/**
+ * Os apoios: dinheiro que entrou sem ser venda de número.
+ *
+ * Como em `carregarMovimentos`, se a tabela ainda não existir (você não rodou
+ * o 04_apoios.sql) o app não quebra — devolve vazio e a tela avisa.
+ */
+export async function carregarApoios(): Promise<{
+  apoios: Apoio[];
+  total: number;
+  /** -1 quando a tabela ainda não existe no banco. */
+  quantidade: number;
+}> {
+  const { data, error } = await supabase
+    .from("apoios")
+    .select("id, descricao, valor, recebido_em")
+    .order("recebido_em", { ascending: false });
+
+  if (error) {
+    console.error("[apoios] não consegui ler:", error.message);
+    return { apoios: [], total: 0, quantidade: -1 };
+  }
+
+  const apoios = (data ?? []).map((a) => ({ ...a, valor: Number(a.valor) }));
+
+  return {
+    apoios,
+    total: apoios.reduce((s, a) => s + a.valor, 0),
+    quantidade: apoios.length,
+  };
+}
+
 /**
  * O extrato do caixa, do mais recente para o mais antigo.
  *

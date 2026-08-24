@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation";
 const ABAS = [
   { href: "/numeros", rotulo: "Números", icone: GradeIcone },
   { href: "/metas", rotulo: "Metas", icone: AlvoIcone },
+  { href: "/apoios", rotulo: "Apoios", icone: CoracaoIcone },
 ];
 
 export function TabBar() {
@@ -70,6 +71,20 @@ function GradeIcone({ ativa }: { ativa: boolean }) {
           strokeWidth="1.8"
         />
       ))}
+    </svg>
+  );
+}
+
+function CoracaoIcone({ ativa }: { ativa: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12 20s-7-4.6-7-9.3A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7 2.7c0 4.7-7 9.3-7 9.3Z"
+        fill={ativa ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

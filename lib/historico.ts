@@ -23,7 +23,9 @@ export type TipoMovimento =
   | "estorno"
   | "meta_paga"
   | "meta_estornada"
-  | "ajuste";
+  | "ajuste"
+  | "apoio" // dinheiro de fora: amigo, patrocínio, vaquinha
+  | "apoio_estornado";
 
 export type Movimento = {
   id: string;

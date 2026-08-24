@@ -1,4 +1,5 @@
 import {
+  carregarApoios,
   carregarMetas,
   carregarMovimentos,
   carregarPanorama,
@@ -10,10 +11,11 @@ export const dynamic = "force-dynamic";
 export default async function PaginaMetas() {
   // As metas precisam do arrecadado, que vem da aba dos números — por isso
   // as leituras acontecem aqui, todas ao mesmo tempo.
-  const [metas, panorama, extrato] = await Promise.all([
+  const [metas, panorama, extrato, apoios] = await Promise.all([
     carregarMetas(),
     carregarPanorama(),
     carregarMovimentos(),
+    carregarApoios(),
   ]);
 
   const numerosVendidos = panorama.compradores
@@ -36,6 +38,7 @@ export default async function PaginaMetas() {
       valorNumero={panorama.config.valor_numero}
       numerosVendidos={numerosVendidos}
       conflitosPagos={conflitosPagos}
+      apoios={apoios.total}
       movimentos={extrato.movimentos}
       totalMovimentos={extrato.total}
       saldoHistorico={extrato.saldo}
