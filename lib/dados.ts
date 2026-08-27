@@ -30,17 +30,43 @@ function conferir<T>(
   return resultado.data as NonNullable<T>;
 }
 
-export async function carregarConfiguracao(): Promise<Configuracao> {
-  const linha = conferir<Configuracao>(
-    await supabase
-      .from("configuracao")
-      .select("id, titulo, total_numeros, valor_numero")
-      .eq("id", 1)
-      .maybeSingle(),
-    "configuracao",
-  );
+const CAMPOS_BASE = "id, titulo, total_numeros, valor_numero";
+const CAMPOS_CONFERENCIA = "saldo_banco, rendimento_banco, conferido_em";
 
-  return { ...linha, valor_numero: Number(linha.valor_numero) };
+export async function carregarConfiguracao(): Promise<Configuracao> {
+  // Tenta com as colunas da conferência. Se elas ainda não existirem (você não
+  // rodou o 05_conferencia.sql), lê sem elas em vez de derrubar a página.
+  let resposta = await supabase
+    .from("configuracao")
+    .select(`${CAMPOS_BASE}, ${CAMPOS_CONFERENCIA}`)
+    .eq("id", 1)
+    .maybeSingle();
+
+  let temConferencia = true;
+
+  if (resposta.error) {
+    temConferencia = false;
+    resposta = await supabase
+      .from("configuracao")
+      .select(CAMPOS_BASE)
+      .eq("id", 1)
+      .maybeSingle();
+  }
+
+  const linha = conferir<Configuracao>(resposta, "configuracao");
+
+  // O Postgres devolve numeric como texto; "== null" pega null e undefined de
+  // uma vez, que é o que chega quando a coluna nem foi lida.
+  const numeroOuNulo = (v: unknown) =>
+    !temConferencia || v == null ? null : Number(v);
+
+  return {
+    ...linha,
+    valor_numero: Number(linha.valor_numero),
+    saldo_banco: numeroOuNulo(linha.saldo_banco),
+    rendimento_banco: numeroOuNulo(linha.rendimento_banco),
+    conferido_em: temConferencia ? (linha.conferido_em ?? null) : null,
+  };
 }
 
 export async function carregarPanorama(): Promise<Panorama> {

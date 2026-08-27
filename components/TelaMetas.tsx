@@ -14,6 +14,7 @@ import {
 } from "@/app/actions/metas";
 import { Botao, Cartao, Estatistica } from "./ui";
 import { HistoricoCaixa } from "./HistoricoCaixa";
+import { ConferenciaBanco } from "./ConferenciaBanco";
 import type { Movimento } from "@/lib/historico";
 
 /**
@@ -35,6 +36,9 @@ export function TelaMetas({
   movimentos,
   totalMovimentos,
   saldoHistorico,
+  saldoBanco,
+  rendimentoBanco,
+  conferidoEm,
 }: {
   metas: Meta[];
   arrecadado: number;
@@ -49,6 +53,10 @@ export function TelaMetas({
   /** -1 quando a tabela do histórico ainda não foi criada no banco. */
   totalMovimentos: number;
   saldoHistorico: number;
+  /** Última conferência com o banco. Nulo = nunca conferido. */
+  saldoBanco: number | null;
+  rendimentoBanco: number | null;
+  conferidoEm: string | null;
 }) {
   const [pendente, iniciar] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -191,6 +199,13 @@ export function TelaMetas({
           É esse dinheiro que a lista abaixo distribui, de cima para baixo.
         </p>
       </Cartao>
+
+      <ConferenciaBanco
+        emCaixa={calculo.emCaixa}
+        saldoBanco={saldoBanco}
+        rendimentoBanco={rendimentoBanco}
+        conferidoEm={conferidoEm}
+      />
 
       {/* Histórico do caixa */}
       <button

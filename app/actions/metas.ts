@@ -203,6 +203,55 @@ export async function moverMeta(
   }
 }
 
+/**
+ * Guarda quanto você viu na Caixinha, para o app comparar com o que calculou.
+ *
+ * NÃO escreve nada no extrato do caixa, de propósito: informar quanto tem no
+ * banco é uma leitura, não uma movimentação. Lançar um movimento aqui furaria
+ * o autoteste do histórico, que compara o saldo do extrato com o em caixa.
+ */
+export async function registrarConferencia(
+  saldo: number,
+  rendimento: number,
+): Promise<Resultado> {
+  try {
+    if (!Number.isFinite(saldo) || saldo < 0)
+      return { ok: false, erro: "Saldo inválido." };
+    if (!Number.isFinite(rendimento) || rendimento < 0)
+      return { ok: false, erro: "Rendimento inválido." };
+    if (rendimento > saldo)
+      return {
+        ok: false,
+        erro: "O rendimento não pode ser maior que o saldo da conta.",
+      };
+
+    const { error } = await supabase
+      .from("configuracao")
+      .update({
+        saldo_banco: saldo,
+        rendimento_banco: rendimento,
+        conferido_em: new Date().toISOString(),
+      })
+      .eq("id", 1);
+
+    if (error) {
+      if (/column|schema cache/i.test(error.message))
+        return {
+          ok: false,
+          erro:
+            "Falta rodar o arquivo supabase/05_conferencia.sql no SQL Editor " +
+            "do Supabase para criar os campos da conferência.",
+        };
+      return falhar(error, "Ao salvar a conferência");
+    }
+
+    atualizarTelas();
+    return { ok: true };
+  } catch (e) {
+    return falhar(e, "Erro inesperado");
+  }
+}
+
 /** Muda quanto custa cada número da rifa. */
 export async function definirValorNumero(valor: number): Promise<Resultado> {
   try {

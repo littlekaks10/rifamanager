@@ -42,6 +42,9 @@ export default async function PaginaMetas() {
       movimentos={extrato.movimentos}
       totalMovimentos={extrato.total}
       saldoHistorico={extrato.saldo}
+      saldoBanco={panorama.config.saldo_banco}
+      rendimentoBanco={panorama.config.rendimento_banco}
+      conferidoEm={panorama.config.conferido_em}
     />
   );
 }

@@ -42,6 +42,16 @@ export type Configuracao = {
   titulo: string;
   total_numeros: number;
   valor_numero: number;
+
+  /**
+   * A última conferência com o banco. Tudo nulo = nunca conferido.
+   *
+   * Isto não entra em nenhuma conta de caixa: é só a leitura do que você viu
+   * na Caixinha, guardada para o app poder comparar com o que ele calculou.
+   */
+  saldo_banco: number | null;
+  rendimento_banco: number | null;
+  conferido_em: string | null;
 };
 
 /**
