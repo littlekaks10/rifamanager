@@ -38,10 +38,15 @@ export function TelaApoios({
     setErro(null);
     iniciar(async () => {
       const r = await acao();
-      if (!r.ok) setErro(r.erro);
+      if (!r.ok) setErro(traduzir(r.erro));
       else depois?.();
     });
   }
+
+  // A tabela ainda não foi criada no banco: nada aqui pode ser salvo.
+  const semTabela = quantidade < 0;
+
+  if (semTabela) return <FaltaRodarSQL />;
 
   return (
     <div className="flex flex-col gap-4">
@@ -50,13 +55,6 @@ export function TelaApoios({
       {erro && (
         <p className="rounded-xl border border-perigoborda bg-perigofundo px-3 py-2 text-xs text-perigo">
           {erro}
-        </p>
-      )}
-
-      {quantidade < 0 && (
-        <p className="rounded-xl border border-alertaborda bg-alertafundo px-3 py-2 text-xs text-alerta">
-          A tabela dos apoios ainda não existe no banco. Rode o arquivo{" "}
-          <strong>supabase/04_apoios.sql</strong> no SQL Editor do Supabase.
         </p>
       )}
 
@@ -94,7 +92,7 @@ export function TelaApoios({
           />
         ))}
 
-        {apoios.length === 0 && quantidade >= 0 && (
+        {apoios.length === 0 && (
           <p className="rounded-2xl border border-borda bg-superficie px-4 py-6 text-center text-sm text-apagado">
             Nenhum apoio ainda. Use o botão abaixo para registrar o primeiro.
           </p>
@@ -121,6 +119,70 @@ export function TelaApoios({
 }
 
 /* ------------------------------------------------------------------ */
+
+/**
+ * A tela de quando a tabela ainda não foi criada no banco.
+ *
+ * Aqui NÃO existe formulário de propósito. Antes, o app mostrava o botão
+ * "+ Novo apoio" mesmo sabendo que a tabela não existia — a pessoa digitava
+ * tudo e batia numa parede. Um app não pode oferecer uma ação que ele já sabe
+ * que vai falhar.
+ */
+function FaltaRodarSQL() {
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-2xl font-bold">Apoios</h1>
+
+      <Cartao className="flex flex-col gap-3 border-alertaborda">
+        <p className="text-sm font-bold text-alerta">
+          ⚙ Falta um passo para esta aba funcionar
+        </p>
+
+        <p className="text-xs leading-relaxed text-apagado">
+          A tabela dos apoios ainda não existe no banco. Criar tabela é uma
+          operação que só o painel do Supabase faz — a chave que o app usa não
+          tem essa permissão, de propósito.
+        </p>
+
+        <ol className="flex list-decimal flex-col gap-2 pl-5 text-xs leading-relaxed text-apagado marker:text-apagado">
+          <li>
+            Abra o <strong className="text-texto">Supabase</strong> e vá em{" "}
+            <strong className="text-texto">SQL Editor</strong> →{" "}
+            <strong className="text-texto">New query</strong>.
+          </li>
+          <li>
+            Cole todo o conteúdo do arquivo{" "}
+            <strong className="text-texto">supabase/04_apoios.sql</strong> do
+            projeto.
+          </li>
+          <li>
+            Toque em <strong className="text-texto">Run</strong> e volte aqui.
+            Nada é apagado, e o arquivo já lança o apoio de R$ 119,99.
+          </li>
+        </ol>
+      </Cartao>
+
+      <p className="text-center text-[11px] leading-relaxed text-apagado">
+        Enquanto isso, as abas Números e Metas seguem funcionando normalmente.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Troca a mensagem crua do banco por uma explicação em português, mas só no
+ * caso que a gente reconhece. Erro desconhecido continua aparecendo como veio:
+ * mensagem feia é melhor do que erro escondido.
+ */
+function traduzir(erro: string): string {
+  if (/could not find the table|schema cache/i.test(erro)) {
+    return (
+      "A tabela dos apoios ainda não existe no banco. Rode o arquivo " +
+      "supabase/04_apoios.sql no SQL Editor do Supabase e tente de novo."
+    );
+  }
+  return erro;
+}
 
 function ItemApoio({
   apoio,
